@@ -10,10 +10,10 @@ version=0.1
 author=Basil Eric Rabi
 email=basil.rabi@tmc.nickelasia.com
 
-about=Provide a brief description of the plugin and its purpose.
+about=Processing algorithm for exporting clusters.
 
-tracker=http://bugs
-repository=http://repo
+tracker=http://datamanagement.tmc.nickelasia.com:3000/basilrabi/cluster_dxf/issues
+repository=http://datamanagement.tmc.nickelasia.com:3000/basilrabi/cluster_dxf
 # End of mandatory metadata
 
 # Recommended items:
@@ -23,9 +23,9 @@ hasProcessingProvider=yes
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python
+tags=python,dxf
 
-homepage=http://homepage
+homepage=http://datamanagement.tmc.nickelasia.com
 category=Analysis
 icon=icon.png
 # experimental flag
