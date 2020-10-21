@@ -6,7 +6,7 @@
 name=Cluster DXF
 qgisMinimumVersion=3.0
 description=Export clusters to DXF
-version=0.1
+version=0.2
 author=Basil Eric Rabi
 email=basil.rabi@tmc.nickelasia.com
 

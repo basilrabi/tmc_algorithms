@@ -115,6 +115,7 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
         total = 100.0 / source.featureCount() if source.featureCount() else 0
         features = source.getFeatures()
         doc = ezdxf.new('R2013')
+        doc.appids.new('TrimbleName')
 
         for current, feature in enumerate(features):
             if feedback.isCanceled():
@@ -127,7 +128,7 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
                 geom = feature.geometry().asMultiPolygon()
                 for multi_polygon in geom:
                     for polygon in multi_polygon:
-                        msp.add_lwpolyline(
+                        entity = msp.add_lwpolyline(
                             [(point.x(), point.y()) for point in polygon],
                             dxfattribs={
                                 'layer': feature.attribute('name'),
@@ -136,6 +137,10 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
                                 'elevation': feature.attribute('z') - 3
                             }
                         )
+                        entity.set_xdata('TrimbleName', [
+                            (1001, 'TrimbleName'),
+                            (1000, feature.attribute('name')),
+                        ])
             feedback.setProgress(int(current * total))
         
         doc.saveas(dxf_file)
