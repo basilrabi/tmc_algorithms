@@ -17,7 +17,7 @@ __copyright__ = '(C) 2022 by Basil Eric Rabi'
 __revision__ = '$Format:%H$'
 
 try:
-    import ezdxf
+    import ezdxf # pyright: reportMissingImports=false
 except ImportError:
     import sys
     import os

@@ -18,6 +18,7 @@ __revision__ = '$Format:%H$'
 
 from qgis.core import QgsProcessingProvider
 from .algorithm.cluster_dxf import ClusterDxfAlgorithm
+from .algorithm.shortest_path import ShortestPathPointLayerAlgorithm
 
 
 class TmcAlgorithmsProvider(QgsProcessingProvider):
@@ -40,8 +41,7 @@ class TmcAlgorithmsProvider(QgsProcessingProvider):
         Loads all algorithms belonging to this provider.
         """
         self.addAlgorithm(ClusterDxfAlgorithm())
-        # add additional algorithms here
-        # self.addAlgorithm(MyOtherAlgorithm())
+        self.addAlgorithm(ShortestPathPointLayerAlgorithm())
 
     def id(self):
         """
