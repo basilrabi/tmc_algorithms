@@ -1,5 +1,5 @@
 #/***************************************************************************
-# ClusterDxf
+# TmcAlgorithms
 #
 # Export clusters to DXF
 #							 -------------------
@@ -19,24 +19,24 @@
 # ***************************************************************************/
 
 
-PLUGINNAME = cluster_dxf
+PLUGINNAME = tmc_algorithms
 PY_FILES = __init__.py \
-	cluster_dxf.py \
-	cluster_dxf_algorithm.py \
-	cluster_dxf_provider.py
+	$(PLUGINNAME).py \
+	$(PLUGINNAME)_provider.py
 EXTRAS = metadata.txt 
 PLUGINDIR=$(HOME)/.local/share/QGIS/QGIS3/profiles/default/python/plugins/$(PLUGINNAME)
 
 
 .PHONY: default
 default:
-	@echo "Cluster to DXF"
+	@echo "TMC Algorithms"
 
 deploy:
 	@echo "Installing plugin..."
 	mkdir -p $(PLUGINDIR)
 	cp -vf $(PY_FILES) $(PLUGINDIR)/
 	cp -vf $(EXTRAS) $(PLUGINDIR)/
+	cp -rvf algorithm $(PLUGINDIR)/
 	cp -rvf lib $(PLUGINDIR)/
 
 dclean:
