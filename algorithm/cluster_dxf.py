@@ -54,7 +54,6 @@ ACI = {
 
 class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
 
-    OUTPUT = 'OUTPUT'
     FILENAME = 'FILENAME'
     INPUT = 'INPUT'
 
@@ -64,12 +63,6 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
                 self.INPUT,
                 self.tr('Input layer'),
                 [QgsProcessing.TypeVectorPolygon]
-            )
-        )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                self.OUTPUT,
-                self.tr('Output layer')
             )
         )
         self.addParameter(
@@ -85,14 +78,6 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
         if dxf_file[-4:] != '.dxf':
             dxf_file += '.dxf'
         source = self.parameterAsSource(parameters, self.INPUT, context)
-        (sink, dest_id) = self.parameterAsSink(
-            parameters,
-            self.OUTPUT,
-            context,
-            source.fields(),
-            source.wkbType(),
-            source.sourceCrs()
-        )
         if source.fields().indexFromName('name') == -1:
             raise Exception('Layer has no `name` field.')
         if source.fields().indexFromName('ore_class') == -1:
@@ -108,11 +93,10 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
         for current, feature in enumerate(features):
             if feedback.isCanceled():
                 break
-            sink.addFeature(feature, QgsFeatureSink.FastInsert)
 
             msp = doc.modelspace()
-            doc.layers.new(name=f'{feature.attribute("name")}')
-            if feature.geometry():
+            if feature.hasGeometry():
+                doc.layers.new(name=f'{feature.attribute("name")}')
                 geom = feature.geometry().asMultiPolygon()
                 for multi_polygon in geom:
                     for polygon in multi_polygon:
@@ -130,9 +114,9 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
                             (1000, feature.attribute('name')),
                         ])
             feedback.setProgress(int(current * total))
-        
+
         doc.saveas(dxf_file)
-        return {self.OUTPUT: dest_id}
+        return {self.FILENAME: dxf_file}
 
     def name(self):
         return 'Export cluster to DXF'
@@ -151,3 +135,8 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return ClusterDxfAlgorithm()
+
+    def shortHelpString(self):
+        return self.tr(
+            'Export the clustred blocks into a DXF file. Block clustering is mainly done by grade control. Each cluster is placed in a separate layer. The color of each cluster is based on its ore_class.'
+        )

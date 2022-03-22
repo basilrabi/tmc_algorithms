@@ -2,7 +2,7 @@
 name=TMC Algorithms
 qgisMinimumVersion=3.0
 description=Various algorithms used in Taganito Mine to ease data processing in QGIS.
-version=0.1
+version=1.0
 author=Basil Eric Rabi
 email=basil.rabi@tmc.nickelasia.com
 about=Processing algorithms used in Taganito Mine.
@@ -16,4 +16,3 @@ icon=icon.png
 experimental=False
 deprecated=False
 server=False
-
