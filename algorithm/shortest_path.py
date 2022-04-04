@@ -23,10 +23,14 @@ from qgis.core import (QgsFeature,
                        QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterBoolean,
+                       QgsProcessingParameterDefinition,
+                       QgsProcessingParameterEnum,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterField,
+                       QgsProcessingParameterNumber,
                        QgsProcessingParameterRasterLayer,
+                       QgsProcessingParameterString,
                        QgsProject)
 from shutil import rmtree
 
@@ -38,16 +42,89 @@ def to_feature(integer_list):
 
 class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
 
+    DEFAULT_DIRECTION = 'DEFAULT_DIRECTION'
+    DEFAULT_SPEED = 'DEFAULT_SPEED'
     DEM = 'DEM'
     DESTINATION = 'DESTINATION'
     DESTINATION_FIELDS = 'DESTINATION_FIELDS'
+    DIRECTION_FIELD = 'DIRECTION_FIELD'
     MANY_TO_MANY = 'MANY_TO_MANY'
     OUTPUT = 'OUTPUT'
     ROAD = 'ROAD'
     SOURCE = 'SOURCE'
     SOURCE_FIELDS = 'SOURCE_FIELDS'
+    SPEED_FIELD = 'SPEED_FIELD'
+    STRATEGY = 'STRATEGY'
+    VALUE_BACKWARD = 'VALUE_BACKWARD'
+    VALUE_BOTH = 'VALUE_BOTH'
+    VALUE_FORWARD = 'VALUE_FORWARD'
 
     def initAlgorithm(self, config):
+        par_default_direction = QgsProcessingParameterEnum(
+            self.DEFAULT_DIRECTION,
+            self.tr('Default direction'),
+            options=[
+                self.tr('Forward direction'),
+                self.tr('Backward direction'),
+                self.tr('Both directions')
+            ],
+            defaultValue=2
+        )
+        par_default_speed = QgsProcessingParameterNumber(
+            self.DEFAULT_SPEED,
+            self.tr('Default speed (km/h)'),
+            type=QgsProcessingParameterNumber.Double,
+            defaultValue=50,
+            minValue=0
+        )
+        par_direction_field = QgsProcessingParameterField(
+            self.DIRECTION_FIELD,
+            self.tr('Direction field'),
+            parentLayerParameterName=self.ROAD,
+            optional=True
+        )
+        par_speed_field = QgsProcessingParameterField(
+            self.SPEED_FIELD,
+            self.tr('Speed field'),
+            parentLayerParameterName=self.ROAD,
+            optional=True
+        )
+        par_strategy = QgsProcessingParameterEnum(
+            self.STRATEGY,
+            self.tr('Path type to calculate'),
+            options=[
+                self.tr('Shortest'),
+                self.tr('Fastest')
+            ],
+            defaultValue=0
+        )
+        par_value_backward = QgsProcessingParameterString(
+            self.VALUE_BACKWARD,
+            self.tr('Value for backward direction'),
+            defaultValue='',
+            optional=True
+        )
+        par_value_both = QgsProcessingParameterString(
+            self.VALUE_BOTH,
+            self.tr('Value for both directions'),
+            defaultValue='',
+            optional=True
+        )
+        par_value_forward = QgsProcessingParameterString(
+            self.VALUE_FORWARD,
+            self.tr('Value for forward direction'),
+            defaultValue='',
+            optional=True
+        )
+        par_default_direction.setFlags(par_default_direction.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        par_default_speed.setFlags(par_default_speed.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        par_direction_field.setFlags(par_direction_field.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        par_speed_field.setFlags(par_speed_field.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        par_strategy.setFlags(par_strategy.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        par_value_backward.setFlags(par_value_backward.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        par_value_both.setFlags(par_value_both.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        par_value_forward.setFlags(par_value_forward.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+
         self.addParameter(
             QgsProcessingParameterFeatureSource(
                 self.SOURCE,
@@ -83,7 +160,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterBoolean(
                 self.MANY_TO_MANY,
-                'Get all feature combinations between source and destination.',
+                self.tr('Get all feature combinations between source and destination'),
                 defaultValue=True
             )
         )
@@ -94,7 +171,6 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 [QgsProcessing.TypeVectorLine]
             )
         )
-
         self.addParameter(
             QgsProcessingParameterRasterLayer(
                 self.DEM,
@@ -108,15 +184,31 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 self.tr('Output layer')
             )
         )
+        self.addParameter(par_strategy)
+        self.addParameter(par_direction_field)
+        self.addParameter(par_value_forward)
+        self.addParameter(par_value_backward)
+        self.addParameter(par_value_both)
+        self.addParameter(par_default_direction)
+        self.addParameter(par_speed_field)
+        self.addParameter(par_default_speed)
 
     def processAlgorithm(self, parameters, context, feedback):
+        default_direction = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context)
+        default_speed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context)
         dem = self.parameterAsRasterLayer(parameters, self.DEM, context)
         destination = self.parameterAsVectorLayer(parameters, self.DESTINATION, context)
         destination_fields = self.parameterAsFields(parameters, self.DESTINATION_FIELDS, context)
+        direction_field = self.parameterAsFields(parameters, self.DIRECTION_FIELD, context) or ''
         many_to_many = self.parameterAsBool(parameters, self.MANY_TO_MANY, context)
         road = self.parameterAsVectorLayer(parameters, self.ROAD, context)
         source = self.parameterAsVectorLayer(parameters, self.SOURCE, context)
         source_fields = self.parameterAsFields(parameters, self.SOURCE_FIELDS, context)
+        speed_field = self.parameterAsFields(parameters, self.SPEED_FIELD, context) or ''
+        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context)
+        value_backward = self.parameterAsString(parameters, self.VALUE_BACKWARD, context)
+        value_both = self.parameterAsString(parameters, self.VALUE_BOTH, context)
+        value_forward = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
 
         field_flag = 0
         if (len(destination_fields) > 0):
@@ -166,18 +258,18 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                                 run(
                                     'native:shortestpathpointtopoint',
                                     {
-                                        'DEFAULT_DIRECTION': 2,
-                                        'DEFAULT_SPEED': 50,
-                                        'DIRECTION_FIELD': '',
+                                        'DEFAULT_DIRECTION': default_direction,
+                                        'DEFAULT_SPEED': default_speed,
+                                        'DIRECTION_FIELD': direction_field,
                                         'END_POINT': destination_feature.geometry(),
                                         'INPUT': parameters[self.ROAD],
-                                        'SPEED_FIELD': '',
+                                        'SPEED_FIELD': speed_field,
                                         'START_POINT': source_feature.geometry(),
-                                        'STRATEGY': 0,
+                                        'STRATEGY': strategy,
                                         'TOLERANCE': 0,
-                                        'VALUE_BACKWARD': '',
-                                        'VALUE_BOTH': '',
-                                        'VALUE_FORWARD': '',
+                                        'VALUE_BACKWARD': value_backward,
+                                        'VALUE_BOTH': value_both,
+                                        'VALUE_FORWARD': value_forward,
                                         'OUTPUT': file_name
                                     },
                                     context=context,
@@ -200,18 +292,18 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 run(
                     'native:shortestpathpointtopoint',
                     {
-                        'DEFAULT_DIRECTION': 2,
-                        'DEFAULT_SPEED': 50,
-                        'DIRECTION_FIELD': '',
+                        'DEFAULT_DIRECTION': default_direction,
+                        'DEFAULT_SPEED': default_speed,
+                        'DIRECTION_FIELD': direction_field,
                         'END_POINT': destination_feature.geometry(),
                         'INPUT': parameters[self.ROAD],
-                        'SPEED_FIELD': '',
+                        'SPEED_FIELD': speed_field,
                         'START_POINT': source_feature.geometry(),
-                        'STRATEGY': 0,
+                        'STRATEGY': strategy,
                         'TOLERANCE': 0,
-                        'VALUE_BACKWARD': '',
-                        'VALUE_BOTH': '',
-                        'VALUE_FORWARD': '',
+                        'VALUE_BACKWARD': value_backward,
+                        'VALUE_BOTH': value_both,
+                        'VALUE_FORWARD': value_forward,
                         'OUTPUT': file_name
                     },
                     context=context,
