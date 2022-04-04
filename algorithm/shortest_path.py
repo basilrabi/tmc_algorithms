@@ -224,69 +224,28 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         rmtree('tmc_algorithms_shortest_path')
 
         if field_flag == 0:
-            result['OUTPUT'] = run(
+            container['multi'] = run(
                 'native:deletecolumn',
                 {
                     'INPUT': container['mergevectorlayers'],
                     'COLUMN': ['layer', 'path'],
-                    'OUTPUT': parameters['OUTPUT']
+                    'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                 },
                 context=context,
                 feedback=feedback,
                 is_child_algorithm=True
             )['OUTPUT']
-            return result
 
-        container['path_with_source'] = run(
-            'native:fieldcalculator',
-            {
-                'FIELD_LENGTH': 0,
-                'FIELD_NAME': 'SOURCE_ID',
-                'FIELD_PRECISION': 0,
-                'FIELD_TYPE': 1, # Integer (32 bit)
-                'FORMULA': 'regexp_substr("layer", \'layer_(\\\\d+)\')',
-                'INPUT': container['mergevectorlayers'],
-                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-            },
-            context=context,
-            feedback=feedback,
-            is_child_algorithm=True
-        )['OUTPUT']
-
-        container['path_with_destination'] = run(
-            'native:fieldcalculator',
-            {
-                'FIELD_LENGTH': 0,
-                'FIELD_NAME': 'DESTINATION_ID',
-                'FIELD_PRECISION': 0,
-                'FIELD_TYPE': 1, # Integer (32 bit)
-                'FORMULA': 'regexp_substr("layer", \'layer_\\\\d+_(\\\\d+)\')',
-                'INPUT': container['path_with_source'],
-                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-            },
-            context=context,
-            feedback=feedback,
-            is_child_algorithm=True
-        )['OUTPUT']
-
-        container['paths'] = run(
-            'native:deletecolumn',
-            {
-                'INPUT': container['path_with_destination'],
-                'COLUMN': ['layer', 'path'],
-                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-            },
-            context=context,
-            feedback=feedback,
-            is_child_algorithm=True
-        )['OUTPUT']
-
-        if field_flag in [1, 3]:
-            container['source'] = run(
-                'native:addautoincrementalfield',
+        else:
+            container['path_with_source'] = run(
+                'native:fieldcalculator',
                 {
-                    'INPUT': source,
+                    'FIELD_LENGTH': 0,
                     'FIELD_NAME': 'SOURCE_ID',
+                    'FIELD_PRECISION': 0,
+                    'FIELD_TYPE': 1, # Integer (32 bit)
+                    'FORMULA': 'regexp_substr("layer", \'layer_(\\\\d+)\')',
+                    'INPUT': container['mergevectorlayers'],
                     'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                 },
                 context=context,
@@ -294,16 +253,15 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 is_child_algorithm=True
             )['OUTPUT']
 
-            container['path_source'] = run(
-                'native:joinattributestable',
+            container['path_with_destination'] = run(
+                'native:fieldcalculator',
                 {
-                    'INPUT': container['paths'],
-                    'FIELD': 'SOURCE_ID',
-                    'INPUT_2': container['source'],
-                    'FIELD_2': 'SOURCE_ID',
-                    'FIELDS_TO_COPY': source_fields,
-                    'METHOD': '1',
-                    'PREFIX': 'source_',
+                    'FIELD_LENGTH': 0,
+                    'FIELD_NAME': 'DESTINATION_ID',
+                    'FIELD_PRECISION': 0,
+                    'FIELD_TYPE': 1, # Integer (32 bit)
+                    'FORMULA': 'regexp_substr("layer", \'layer_\\\\d+_(\\\\d+)\')',
+                    'INPUT': container['path_with_source'],
                     'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                 },
                 context=context,
@@ -311,37 +269,108 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 is_child_algorithm=True
             )['OUTPUT']
 
-            if field_flag == 1:
-                result['OUTPUT'] = run(
-                    'native:deletecolumn',
+            container['paths'] = run(
+                'native:deletecolumn',
+                {
+                    'INPUT': container['path_with_destination'],
+                    'COLUMN': ['layer', 'path'],
+                    'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                },
+                context=context,
+                feedback=feedback,
+                is_child_algorithm=True
+            )['OUTPUT']
+
+            if field_flag in [1, 3]:
+                container['source'] = run(
+                    'native:addautoincrementalfield',
                     {
-                        'INPUT': container['path_source'],
-                        'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
-                        'OUTPUT': parameters['OUTPUT']
+                        'INPUT': source,
+                        'FIELD_NAME': 'SOURCE_ID',
+                        'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                     },
                     context=context,
                     feedback=feedback,
                     is_child_algorithm=True
                 )['OUTPUT']
-                return result
 
-        if field_flag in [2, 3]:
-            container['destination'] = run(
-                'native:addautoincrementalfield',
-                {
-                    'INPUT': destination,
-                    'FIELD_NAME': 'DESTINATION_ID',
-                    'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-                },
-                context=context,
-                feedback=feedback,
-                is_child_algorithm=True
-            )['OUTPUT']
-            if field_flag == 2:
-                container['path_destination'] = run(
+                container['path_source'] = run(
                     'native:joinattributestable',
                     {
                         'INPUT': container['paths'],
+                        'FIELD': 'SOURCE_ID',
+                        'INPUT_2': container['source'],
+                        'FIELD_2': 'SOURCE_ID',
+                        'FIELDS_TO_COPY': source_fields,
+                        'METHOD': '1',
+                        'PREFIX': 'source_',
+                        'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                    },
+                    context=context,
+                    feedback=feedback,
+                    is_child_algorithm=True
+                )['OUTPUT']
+
+                if field_flag == 1:
+                    container['multi'] = run(
+                        'native:deletecolumn',
+                        {
+                            'INPUT': container['path_source'],
+                            'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
+                            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                        },
+                        context=context,
+                        feedback=feedback,
+                        is_child_algorithm=True
+                    )['OUTPUT']
+
+            if field_flag in [2, 3]:
+                container['destination'] = run(
+                    'native:addautoincrementalfield',
+                    {
+                        'INPUT': destination,
+                        'FIELD_NAME': 'DESTINATION_ID',
+                        'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                    },
+                    context=context,
+                    feedback=feedback,
+                    is_child_algorithm=True
+                )['OUTPUT']
+                if field_flag == 2:
+                    container['path_destination'] = run(
+                        'native:joinattributestable',
+                        {
+                            'INPUT': container['paths'],
+                            'FIELD': 'DESTINATION_ID',
+                            'INPUT_2': container['destination'],
+                            'FIELD_2': 'DESTINATION_ID',
+                            'FIELDS_TO_COPY': destination_fields,
+                            'METHOD': '1',
+                            'PREFIX': 'destination_',
+                            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                        },
+                        context=context,
+                        feedback=feedback,
+                        is_child_algorithm=True
+                    )['OUTPUT']
+
+                    container['multi'] = run(
+                        'native:deletecolumn',
+                        {
+                            'INPUT': container['path_destination'],
+                            'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
+                            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                        },
+                        context=context,
+                        feedback=feedback,
+                        is_child_algorithm=True
+                    )['OUTPUT']
+
+            if field_flag == 3:
+                container['path_complete'] = run(
+                    'native:joinattributestable',
+                    {
+                        'INPUT': container['path_source'],
                         'FIELD': 'DESTINATION_ID',
                         'INPUT_2': container['destination'],
                         'FIELD_2': 'DESTINATION_ID',
@@ -354,29 +383,23 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                     feedback=feedback,
                     is_child_algorithm=True
                 )['OUTPUT']
-                result['OUTPUT'] = run(
+
+                container['multi'] = run(
                     'native:deletecolumn',
                     {
-                        'INPUT': container['path_destination'],
+                        'INPUT': container['path_complete'],
                         'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
-                        'OUTPUT': parameters['OUTPUT']
+                        'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                     },
                     context=context,
                     feedback=feedback,
                     is_child_algorithm=True
                 )['OUTPUT']
-                return result
 
-        container['path_complete'] = run(
-            'native:joinattributestable',
+        container['single'] = run(
+            'native:multiparttosingleparts',
             {
-                'INPUT': container['path_source'],
-                'FIELD': 'DESTINATION_ID',
-                'INPUT_2': container['destination'],
-                'FIELD_2': 'DESTINATION_ID',
-                'FIELDS_TO_COPY': destination_fields,
-                'METHOD': '1',
-                'PREFIX': 'destination_',
+                'INPUT': container['multi'],
                 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
             },
             context=context,
@@ -385,10 +408,14 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         )['OUTPUT']
 
         result['OUTPUT'] = run(
-            'native:deletecolumn',
+            'native:fieldcalculator',
             {
-                'INPUT': container['path_complete'],
-                'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
+                'FIELD_LENGTH': 0,
+                'FIELD_NAME': 'distance_2d',
+                'FIELD_PRECISION': 3,
+                'FIELD_TYPE': 0, # Decimal (double)
+                'FORMULA': 'length3D($geometry)',
+                'INPUT': container['single'],
                 'OUTPUT': parameters['OUTPUT']
             },
             context=context,
