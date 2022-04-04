@@ -26,6 +26,7 @@ from qgis.core import (QgsFeature,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterField,
+                       QgsProcessingParameterRasterLayer,
                        QgsProject)
 from shutil import rmtree
 
@@ -37,6 +38,7 @@ def to_feature(integer_list):
 
 class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
 
+    DEM = 'DEM'
     DESTINATION = 'DESTINATION'
     DESTINATION_FIELDS = 'DESTINATION_FIELDS'
     MANY_TO_MANY = 'MANY_TO_MANY'
@@ -56,7 +58,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterField(
                 self.SOURCE_FIELDS,
-                self.tr('Source Table Fields to be Copied'),
+                self.tr('Source table columns to be copied'),
                 parentLayerParameterName=self.SOURCE,
                 allowMultiple=True,
                 optional=True
@@ -72,7 +74,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterField(
                 self.DESTINATION_FIELDS,
-                self.tr('Destination Table Fields to be Copied'),
+                self.tr('Destination table columns to be copied'),
                 parentLayerParameterName=self.DESTINATION,
                 allowMultiple=True,
                 optional=True
@@ -81,7 +83,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterBoolean(
                 self.MANY_TO_MANY,
-                'Get All Feature Combinations between Source and Destination',
+                'Get all feature combinations between source and destination.',
                 defaultValue=True
             )
         )
@@ -92,6 +94,14 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 [QgsProcessing.TypeVectorLine]
             )
         )
+
+        self.addParameter(
+            QgsProcessingParameterRasterLayer(
+                self.DEM,
+                self.tr('Raster DEM Layer'),
+                optional=True
+            )
+        )
         self.addParameter(
             QgsProcessingParameterFeatureSink(
                 self.OUTPUT,
@@ -100,6 +110,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
+        dem = self.parameterAsRasterLayer(parameters, self.DEM, context)
         destination = self.parameterAsVectorLayer(parameters, self.DESTINATION, context)
         destination_fields = self.parameterAsFields(parameters, self.DESTINATION_FIELDS, context)
         many_to_many = self.parameterAsBool(parameters, self.MANY_TO_MANY, context)
@@ -407,15 +418,65 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
             is_child_algorithm=True
         )['OUTPUT']
 
+        if not dem:
+            result['OUTPUT'] = run(
+                'native:fieldcalculator',
+                {
+                    'FIELD_LENGTH': 0,
+                    'FIELD_NAME': 'distance_2d_km',
+                    'FIELD_PRECISION': 3,
+                    'FIELD_TYPE': 0,
+                    'FORMULA': 'length3D($geometry) / 1000',
+                    'INPUT': container['single'],
+                    'OUTPUT': parameters['OUTPUT']
+                },
+                context=context,
+                feedback=feedback,
+                is_child_algorithm=True
+            )['OUTPUT']
+
+            return result
+
+        container['2d'] = run(
+            'native:fieldcalculator',
+            {
+                'FIELD_LENGTH': 0,
+                'FIELD_NAME': 'distance_2d_km',
+                'FIELD_PRECISION': 3,
+                'FIELD_TYPE': 0,
+                'FORMULA': 'length3D($geometry) / 1000',
+                'INPUT': container['single'],
+                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+            },
+            context=context,
+            feedback=feedback,
+            is_child_algorithm=True
+        )['OUTPUT']
+
+        container['3d'] = run(
+            'native:setzfromraster',
+            {
+                'BAND': 1,
+                'INPUT': container['2d'],
+                'NODATA': 0,
+                'RASTER': parameters[self.DEM],
+                'SCALE': 1,
+                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+            },
+            context=context,
+            feedback=feedback,
+            is_child_algorithm=True
+        )['OUTPUT']
+
         result['OUTPUT'] = run(
             'native:fieldcalculator',
             {
                 'FIELD_LENGTH': 0,
-                'FIELD_NAME': 'distance_2d',
+                'FIELD_NAME': 'distance_3d_km',
                 'FIELD_PRECISION': 3,
-                'FIELD_TYPE': 0, # Decimal (double)
-                'FORMULA': 'length3D($geometry)',
-                'INPUT': container['single'],
+                'FIELD_TYPE': 0,
+                'FORMULA': 'length3D($geometry) / 1000',
+                'INPUT': container['3d'],
                 'OUTPUT': parameters['OUTPUT']
             },
             context=context,
