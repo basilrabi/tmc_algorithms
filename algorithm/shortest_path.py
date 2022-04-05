@@ -254,28 +254,31 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                         if destination_feature.hasGeometry():
                             if not source_feature.geometry().equals(destination_feature.geometry()):
                                 file_name = f'tmc_algorithms_shortest_path/layer_{j}_{k}.shp'
-                                paths.append(file_name)
-                                run(
-                                    'native:shortestpathpointtopoint',
-                                    {
-                                        'DEFAULT_DIRECTION': default_direction,
-                                        'DEFAULT_SPEED': default_speed,
-                                        'DIRECTION_FIELD': direction_field,
-                                        'END_POINT': destination_feature.geometry(),
-                                        'INPUT': parameters[self.ROAD],
-                                        'SPEED_FIELD': speed_field,
-                                        'START_POINT': source_feature.geometry(),
-                                        'STRATEGY': strategy,
-                                        'TOLERANCE': 0,
-                                        'VALUE_BACKWARD': value_backward,
-                                        'VALUE_BOTH': value_both,
-                                        'VALUE_FORWARD': value_forward,
-                                        'OUTPUT': file_name
-                                    },
-                                    context=context,
-                                    feedback=feedback,
-                                    is_child_algorithm=True
-                                )
+                                try:
+                                    run(
+                                        'native:shortestpathpointtopoint',
+                                        {
+                                            'DEFAULT_DIRECTION': default_direction,
+                                            'DEFAULT_SPEED': default_speed,
+                                            'DIRECTION_FIELD': direction_field,
+                                            'END_POINT': destination_feature.geometry(),
+                                            'INPUT': parameters[self.ROAD],
+                                            'SPEED_FIELD': speed_field,
+                                            'START_POINT': source_feature.geometry(),
+                                            'STRATEGY': strategy,
+                                            'TOLERANCE': 0,
+                                            'VALUE_BACKWARD': value_backward,
+                                            'VALUE_BOTH': value_both,
+                                            'VALUE_FORWARD': value_forward,
+                                            'OUTPUT': file_name
+                                        },
+                                        context=context,
+                                        feedback=feedback,
+                                        is_child_algorithm=True
+                                    )
+                                    paths.append(file_name)
+                                except:
+                                    pass
                         k += 1
                         progress += 1
                         feedback.setProgress(int(progress * total))
@@ -288,28 +291,31 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                     result['OUTPUT'] = None
                     return result
                 file_name = f'tmc_algorithms_shortest_path/layer_{i}_{i}.shp'
-                paths.append(file_name)
-                run(
-                    'native:shortestpathpointtopoint',
-                    {
-                        'DEFAULT_DIRECTION': default_direction,
-                        'DEFAULT_SPEED': default_speed,
-                        'DIRECTION_FIELD': direction_field,
-                        'END_POINT': destination_feature.geometry(),
-                        'INPUT': parameters[self.ROAD],
-                        'SPEED_FIELD': speed_field,
-                        'START_POINT': source_feature.geometry(),
-                        'STRATEGY': strategy,
-                        'TOLERANCE': 0,
-                        'VALUE_BACKWARD': value_backward,
-                        'VALUE_BOTH': value_both,
-                        'VALUE_FORWARD': value_forward,
-                        'OUTPUT': file_name
-                    },
-                    context=context,
-                    feedback=feedback,
-                    is_child_algorithm=True
-                )
+                try:
+                    run(
+                        'native:shortestpathpointtopoint',
+                        {
+                            'DEFAULT_DIRECTION': default_direction,
+                            'DEFAULT_SPEED': default_speed,
+                            'DIRECTION_FIELD': direction_field,
+                            'END_POINT': destination_feature.geometry(),
+                            'INPUT': parameters[self.ROAD],
+                            'SPEED_FIELD': speed_field,
+                            'START_POINT': source_feature.geometry(),
+                            'STRATEGY': strategy,
+                            'TOLERANCE': 0,
+                            'VALUE_BACKWARD': value_backward,
+                            'VALUE_BOTH': value_both,
+                            'VALUE_FORWARD': value_forward,
+                            'OUTPUT': file_name
+                        },
+                        context=context,
+                        feedback=feedback,
+                        is_child_algorithm=True
+                    )
+                    paths.append(file_name)
+                except:
+                    pass
                 i += 1
                 feedback.setProgress(int(i * total))
 
