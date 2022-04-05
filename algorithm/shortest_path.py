@@ -16,11 +16,10 @@ __date__ = '2022-03-11'
 __copyright__ = '(C) 2022 by Basil Eric Rabi'
 __revision__ = '$Format:%H$'
 
-from os import mkdir, path
+from os import remove, path
 from processing import run # pyright: reportMissingImports=false
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsFeature,
-                       QgsProcessing,
+from qgis.core import (QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterBoolean,
                        QgsProcessingParameterDefinition,
@@ -32,12 +31,6 @@ from qgis.core import (QgsFeature,
                        QgsProcessingParameterRasterLayer,
                        QgsProcessingParameterString,
                        QgsProject)
-from shutil import rmtree
-
-def to_feature(integer_list):
-    feature = QgsFeature()
-    feature.setAttributes(integer_list)
-    return feature
 
 
 class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
@@ -227,72 +220,94 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         if (destination.sourceCrs().authid() != source.sourceCrs().authid()):
             raise Exception('Source and destination CRS do not match.')
 
-        if path.exists('tmc_algorithms_shortest_path'):
-            rmtree('tmc_algorithms_shortest_path')
-        mkdir('tmc_algorithms_shortest_path')
-
         destination_features = destination.getFeatures()
         source_features = source.getFeatures()
-        paths = []
         container = {}
         result = {}
+        layers = []
         i = 0
+        total = 100.0 / source.featureCount()
+
+        container['destination'] = run(
+            'native:addautoincrementalfield',
+            {
+                'INPUT': destination,
+                'FIELD_NAME': 'DESTINATION_ID',
+                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+            },
+            context=context,
+            is_child_algorithm=True
+        )['OUTPUT']
+
+        feedback.pushInfo(self.tr('Analyzing network...'))
 
         if many_to_many:
-            total = 100.0 / (source.featureCount() * destination.featureCount())
-            j = 0
-            progress = 0
-            destination_feature_list = [destination_feature for destination_feature in destination_features]
-            source_feature_list = [source_feature for source_feature in source_features]
-            for source_feature in source_feature_list:
+            container['destination_geom'] = run(
+                'native:retainfields',
+                {
+                    'INPUT': container['destination'],
+                    'FIELDS': ['DESTINATION_ID'],
+                    'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                },
+                context=context,
+                is_child_algorithm=True
+            )['OUTPUT']
+
+            for source_feature in source_features:
                 if source_feature.hasGeometry():
-                    k = 0
-                    for destination_feature in destination_feature_list:
-                        if feedback.isCanceled():
-                            result['OUTPUT'] = None
-                            return result
-                        if destination_feature.hasGeometry():
-                            if not source_feature.geometry().equals(destination_feature.geometry()):
-                                file_name = f'tmc_algorithms_shortest_path/layer_{j}_{k}.shp'
-                                try:
-                                    run(
-                                        'native:shortestpathpointtopoint',
-                                        {
-                                            'DEFAULT_DIRECTION': default_direction,
-                                            'DEFAULT_SPEED': default_speed,
-                                            'DIRECTION_FIELD': direction_field,
-                                            'END_POINT': destination_feature.geometry(),
-                                            'INPUT': parameters[self.ROAD],
-                                            'SPEED_FIELD': speed_field,
-                                            'START_POINT': source_feature.geometry(),
-                                            'STRATEGY': strategy,
-                                            'TOLERANCE': 0,
-                                            'VALUE_BACKWARD': value_backward,
-                                            'VALUE_BOTH': value_both,
-                                            'VALUE_FORWARD': value_forward,
-                                            'OUTPUT': file_name
-                                        },
-                                        context=context,
-                                        feedback=feedback,
-                                        is_child_algorithm=True
-                                    )
-                                    paths.append(file_name)
-                                except:
-                                    pass
-                        k += 1
-                        progress += 1
-                        feedback.setProgress(int(progress * total))
-                j += 1
+                    if feedback.isCanceled():
+                        result['OUTPUT'] = None
+                        return result
+                    try:
+                        paths = run(
+                            'native:shortestpathpointtolayer',
+                            {
+                                'DEFAULT_DIRECTION': default_direction,
+                                'DEFAULT_SPEED': default_speed,
+                                'DIRECTION_FIELD': direction_field,
+                                'END_POINTS': container['destination_geom'],
+                                'INPUT': parameters[self.ROAD],
+                                'SPEED_FIELD': speed_field,
+                                'START_POINT': source_feature.geometry(),
+                                'STRATEGY': strategy,
+                                'TOLERANCE': 0,
+                                'VALUE_BACKWARD': value_backward,
+                                'VALUE_BOTH': value_both,
+                                'VALUE_FORWARD': value_forward,
+                                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                            },
+                            context=context,
+                            is_child_algorithm=True
+                        )['OUTPUT']
+
+                        path_output = run(
+                            'native:fieldcalculator',
+                            {
+                                'FIELD_LENGTH': 0,
+                                'FIELD_NAME': 'SOURCE_ID',
+                                'FIELD_PRECISION': 0,
+                                'FIELD_TYPE': 1,
+                                'FORMULA': f'{i}',
+                                'INPUT': paths,
+                                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                            },
+                            context=context,
+                            is_child_algorithm=True
+                        )['OUTPUT']
+                        layers.append(path_output)
+                    except:
+                        pass
+                i += 1
+                feedback.setProgress(int(i * total))
+                feedback.pushInfo(f'Processed {i} out of {source.featureCount()} sources.')
 
         else:
-            total = 100.0 / source.featureCount()
             for destination_feature, source_feature in zip(destination_features, source_features):
                 if feedback.isCanceled():
                     result['OUTPUT'] = None
                     return result
-                file_name = f'tmc_algorithms_shortest_path/layer_{i}_{i}.shp'
                 try:
-                    run(
+                    paths = run(
                         'native:shortestpathpointtopoint',
                         {
                             'DEFAULT_DIRECTION': default_direction,
@@ -307,22 +322,51 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                             'VALUE_BACKWARD': value_backward,
                             'VALUE_BOTH': value_both,
                             'VALUE_FORWARD': value_forward,
-                            'OUTPUT': file_name
+                            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                         },
                         context=context,
-                        feedback=feedback,
                         is_child_algorithm=True
-                    )
-                    paths.append(file_name)
+                    )['OUTPUT']
+                    path_with_source = run(
+                        'native:fieldcalculator',
+                        {
+                            'FIELD_LENGTH': 0,
+                            'FIELD_NAME': 'SOURCE_ID',
+                            'FIELD_PRECISION': 0,
+                            'FIELD_TYPE': 1,
+                            'FORMULA': f'{i}',
+                            'INPUT': paths,
+                            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                        },
+                        context=context,
+                        is_child_algorithm=True
+                    )['OUTPUT']
+                    path_with_destination = run(
+                        'native:fieldcalculator',
+                        {
+                            'FIELD_LENGTH': 0,
+                            'FIELD_NAME': 'DESTINATION_ID',
+                            'FIELD_PRECISION': 0,
+                            'FIELD_TYPE': 1,
+                            'FORMULA': f'{i}',
+                            'INPUT': path_with_source,
+                            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+                        },
+                        context=context,
+                        is_child_algorithm=True
+                    )['OUTPUT']
+                    layers.append(path_with_destination)
                 except:
                     pass
                 i += 1
                 feedback.setProgress(int(i * total))
+                feedback.pushInfo(f'Processed {i} out of {source.featureCount()} sources.')
 
+        feedback.pushInfo(self.tr('Merging paths...'))
         container['mergevectorlayers'] = run(
             'native:mergevectorlayers',
             {
-                'LAYERS': paths,
+                'LAYERS': layers,
                 'CRS': QgsProject.instance().crs(),
                 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
             },
@@ -330,14 +374,13 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
             feedback=feedback,
             is_child_algorithm=True
         )['OUTPUT']
-        rmtree('tmc_algorithms_shortest_path')
 
         if field_flag == 0:
-            container['multi'] = run(
+            container['multiline'] = run(
                 'native:deletecolumn',
                 {
                     'INPUT': container['mergevectorlayers'],
-                    'COLUMN': ['layer', 'path'],
+                    'COLUMN': ['layer', 'path', 'DESTINATION_ID', 'SOURCE_ID'],
                     'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                 },
                 context=context,
@@ -346,49 +389,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
             )['OUTPUT']
 
         else:
-            container['path_with_source'] = run(
-                'native:fieldcalculator',
-                {
-                    'FIELD_LENGTH': 0,
-                    'FIELD_NAME': 'SOURCE_ID',
-                    'FIELD_PRECISION': 0,
-                    'FIELD_TYPE': 1, # Integer (32 bit)
-                    'FORMULA': 'regexp_substr("layer", \'layer_(\\\\d+)\')',
-                    'INPUT': container['mergevectorlayers'],
-                    'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-                },
-                context=context,
-                feedback=feedback,
-                is_child_algorithm=True
-            )['OUTPUT']
-
-            container['path_with_destination'] = run(
-                'native:fieldcalculator',
-                {
-                    'FIELD_LENGTH': 0,
-                    'FIELD_NAME': 'DESTINATION_ID',
-                    'FIELD_PRECISION': 0,
-                    'FIELD_TYPE': 1, # Integer (32 bit)
-                    'FORMULA': 'regexp_substr("layer", \'layer_\\\\d+_(\\\\d+)\')',
-                    'INPUT': container['path_with_source'],
-                    'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-                },
-                context=context,
-                feedback=feedback,
-                is_child_algorithm=True
-            )['OUTPUT']
-
-            container['paths'] = run(
-                'native:deletecolumn',
-                {
-                    'INPUT': container['path_with_destination'],
-                    'COLUMN': ['layer', 'path'],
-                    'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-                },
-                context=context,
-                feedback=feedback,
-                is_child_algorithm=True
-            )['OUTPUT']
+            feedback.pushInfo(self.tr('Joining fields...'))
 
             if field_flag in [1, 3]:
                 container['source'] = run(
@@ -406,7 +407,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 container['path_source'] = run(
                     'native:joinattributestable',
                     {
-                        'INPUT': container['paths'],
+                        'INPUT': container['mergevectorlayers'],
                         'FIELD': 'SOURCE_ID',
                         'INPUT_2': container['source'],
                         'FIELD_2': 'SOURCE_ID',
@@ -421,11 +422,11 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 )['OUTPUT']
 
                 if field_flag == 1:
-                    container['multi'] = run(
+                    container['multiline'] = run(
                         'native:deletecolumn',
                         {
                             'INPUT': container['path_source'],
-                            'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
+                            'COLUMN': ['layer', 'path', 'DESTINATION_ID', 'SOURCE_ID'],
                             'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                         },
                         context=context,
@@ -434,22 +435,11 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                     )['OUTPUT']
 
             if field_flag in [2, 3]:
-                container['destination'] = run(
-                    'native:addautoincrementalfield',
-                    {
-                        'INPUT': destination,
-                        'FIELD_NAME': 'DESTINATION_ID',
-                        'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-                    },
-                    context=context,
-                    feedback=feedback,
-                    is_child_algorithm=True
-                )['OUTPUT']
                 if field_flag == 2:
                     container['path_destination'] = run(
                         'native:joinattributestable',
                         {
-                            'INPUT': container['paths'],
+                            'INPUT': container['mergevectorlayers'],
                             'FIELD': 'DESTINATION_ID',
                             'INPUT_2': container['destination'],
                             'FIELD_2': 'DESTINATION_ID',
@@ -462,12 +452,11 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                         feedback=feedback,
                         is_child_algorithm=True
                     )['OUTPUT']
-
-                    container['multi'] = run(
+                    container['multiline'] = run(
                         'native:deletecolumn',
                         {
                             'INPUT': container['path_destination'],
-                            'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
+                            'COLUMN': ['layer', 'path', 'DESTINATION_ID', 'SOURCE_ID'],
                             'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                         },
                         context=context,
@@ -492,12 +481,11 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                     feedback=feedback,
                     is_child_algorithm=True
                 )['OUTPUT']
-
-                container['multi'] = run(
+                container['multiline'] = run(
                     'native:deletecolumn',
                     {
                         'INPUT': container['path_complete'],
-                        'COLUMN': ['DESTINATION_ID', 'SOURCE_ID'],
+                        'COLUMN': ['layer', 'path', 'DESTINATION_ID', 'SOURCE_ID'],
                         'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
                     },
                     context=context,
@@ -505,10 +493,11 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                     is_child_algorithm=True
                 )['OUTPUT']
 
-        container['single'] = run(
+        feedback.pushInfo(self.tr('Converting to single part geometry...'))
+        container['singleline'] = run(
             'native:multiparttosingleparts',
             {
-                'INPUT': container['multi'],
+                'INPUT': container['multiline'],
                 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
             },
             context=context,
@@ -517,6 +506,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         )['OUTPUT']
 
         if not dem:
+            feedback.pushInfo(self.tr('Computing 2D distance...'))
             result['OUTPUT'] = run(
                 'native:fieldcalculator',
                 {
@@ -525,7 +515,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                     'FIELD_PRECISION': 3,
                     'FIELD_TYPE': 0,
                     'FORMULA': 'length3D($geometry) / 1000',
-                    'INPUT': container['single'],
+                    'INPUT': container['singleline'],
                     'OUTPUT': parameters['OUTPUT']
                 },
                 context=context,
@@ -535,6 +525,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
 
             return result
 
+        feedback.pushInfo(self.tr('Computing 2D distance...'))
         container['2d'] = run(
             'native:fieldcalculator',
             {
@@ -543,7 +534,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
                 'FIELD_PRECISION': 3,
                 'FIELD_TYPE': 0,
                 'FORMULA': 'length3D($geometry) / 1000',
-                'INPUT': container['single'],
+                'INPUT': container['singleline'],
                 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
             },
             context=context,
@@ -551,6 +542,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
             is_child_algorithm=True
         )['OUTPUT']
 
+        feedback.pushInfo(self.tr('Draping...'))
         container['3d'] = run(
             'native:setzfromraster',
             {
@@ -566,6 +558,7 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
             is_child_algorithm=True
         )['OUTPUT']
 
+        feedback.pushInfo(self.tr('Computing 3D distance...'))
         result['OUTPUT'] = run(
             'native:fieldcalculator',
             {
@@ -604,5 +597,5 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
 
     def shortHelpString(self):
         return self.tr(
-            'This algorithm computes the shortest routes between given start and end points layers.'
+            'This algorithm computes the shortest routes between given start and end points layers. If a raster DEM layer is given, also drapes the resulting paths into the DEM.'
         )
