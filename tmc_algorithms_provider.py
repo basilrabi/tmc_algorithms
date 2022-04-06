@@ -16,7 +16,9 @@ __date__ = '2022-03-11'
 __copyright__ = '(C) 2022 by Basil Eric Rabi'
 __revision__ = '$Format:%H$'
 
+from qgis.PyQt.QtGui import QIcon
 from qgis.core import QgsProcessingProvider
+from . import resources
 from .algorithm.cluster_dxf import ClusterDxfAlgorithm
 from .algorithm.polygon_dxf import PolygonDxfAlgorithm
 from .algorithm.shortest_path import ShortestPathPointLayerAlgorithm
@@ -67,7 +69,7 @@ class TmcAlgorithmsProvider(QgsProcessingProvider):
         Should return a QIcon which is used for your provider inside
         the Processing toolbox.
         """
-        return QgsProcessingProvider.icon(self)
+        return QIcon(':/plugins/tmc_algorithms/logo.svg')
 
     def longName(self):
         """

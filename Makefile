@@ -22,8 +22,11 @@
 PLUGINNAME = tmc_algorithms
 PY_FILES = __init__.py \
 	$(PLUGINNAME).py \
-	$(PLUGINNAME)_provider.py
-EXTRAS = metadata.txt 
+	$(PLUGINNAME)_provider.py \
+	resources.py
+EXTRAS = logo.svg \
+	metadata.txt \
+	resources.qrc
 PLUGINDIR=$(HOME)/.local/share/QGIS/QGIS3/profiles/default/python/plugins/$(PLUGINNAME)
 
 
@@ -33,6 +36,8 @@ default:
 
 deploy:
 	@echo "Installing plugin..."
+	rm -f resources.py
+	pyrcc5 -o resources.py resources.qrc
 	mkdir -p $(PLUGINDIR)
 	cp -vf $(PY_FILES) $(PLUGINDIR)/
 	cp -vf $(EXTRAS) $(PLUGINDIR)/
