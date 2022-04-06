@@ -16,7 +16,6 @@ __date__ = '2022-03-11'
 __copyright__ = '(C) 2022 by Basil Eric Rabi'
 __revision__ = '$Format:%H$'
 
-from os import remove, path
 from processing import run # pyright: reportMissingImports=false
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
