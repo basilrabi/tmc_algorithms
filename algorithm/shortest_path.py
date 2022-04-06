@@ -191,16 +191,21 @@ class ShortestPathPointLayerAlgorithm(QgsProcessingAlgorithm):
         dem = self.parameterAsRasterLayer(parameters, self.DEM, context)
         destination = self.parameterAsVectorLayer(parameters, self.DESTINATION, context)
         destination_fields = self.parameterAsFields(parameters, self.DESTINATION_FIELDS, context)
-        direction_field = self.parameterAsFields(parameters, self.DIRECTION_FIELD, context) or ''
+        direction_field = self.parameterAsFields(parameters, self.DIRECTION_FIELD, context) or None
         many_to_many = self.parameterAsBool(parameters, self.MANY_TO_MANY, context)
         road = self.parameterAsVectorLayer(parameters, self.ROAD, context)
         source = self.parameterAsVectorLayer(parameters, self.SOURCE, context)
         source_fields = self.parameterAsFields(parameters, self.SOURCE_FIELDS, context)
-        speed_field = self.parameterAsFields(parameters, self.SPEED_FIELD, context) or ''
+        speed_field = self.parameterAsFields(parameters, self.SPEED_FIELD, context) or None
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context)
         value_backward = self.parameterAsString(parameters, self.VALUE_BACKWARD, context)
         value_both = self.parameterAsString(parameters, self.VALUE_BOTH, context)
         value_forward = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
+
+        if direction_field:
+            direction_field = direction_field[0]
+        if speed_field:
+            speed_field = speed_field[0]
 
         field_flag = 0
         if (len(destination_fields) > 0):
