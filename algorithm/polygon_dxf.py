@@ -19,13 +19,12 @@ __revision__ = '$Format:%H$'
 import os
 from processing import run # pyright: reportMissingImports=false
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsMultiPolygon,
-                       QgsProcessing,
+from qgis.core import (QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterField,
                        QgsProcessingParameterFileDestination,
-                       QgsVectorLayer)
+                       QgsProcessingUtils)
 
 try:
     import ezdxf # pyright: reportMissingImports=false
@@ -92,21 +91,16 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
         if elevation:
             elevation_field = elevation[0]
 
-        if os.path.exists('tmc_algorithm.gpkg'):
-            os.remove('tmc_algorithm.gpkg')
-
-        run(
+        promoted_multi = run(
             'native:promotetomulti',
             {
                 'INPUT': source,
-                'OUTPUT': 'ogr:dbname=tmc_algorithm.gpkg table="layer" (geom)'
+                'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
             },
             context=context,
             is_child_algorithm=True
         )['OUTPUT']
-
-        multi = QgsVectorLayer('tmc_algorithm.gpkg|layername=layer')
-        print(multi)
+        multi = QgsProcessingUtils.mapLayerFromString(promoted_multi, context)
 
         total = 100.0 / multi.featureCount() if multi.featureCount() else 0
         features = multi.getFeatures()
@@ -170,6 +164,4 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
         return PolygonDxfAlgorithm()
 
     def shortHelpString(self):
-        return self.tr(
-            'Export a (Multi)Polygon layer to DXF.'
-        )
+        return self.tr('Export a (Multi)Polygon layer to DXF.')
