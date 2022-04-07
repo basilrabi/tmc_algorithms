@@ -21,6 +21,7 @@ from qgis.core import QgsProcessingProvider
 from . import resources
 from .algorithm.cluster_dxf import ClusterDxfAlgorithm
 from .algorithm.line_dxf import LineDxfAlgorithm
+from .algorithm.point_dxf import PointDxfAlgorithm
 from .algorithm.polygon_dxf import PolygonDxfAlgorithm
 from .algorithm.shortest_path import ShortestPathPointLayerAlgorithm
 
@@ -46,6 +47,7 @@ class TmcAlgorithmsProvider(QgsProcessingProvider):
         """
         self.addAlgorithm(ClusterDxfAlgorithm())
         self.addAlgorithm(LineDxfAlgorithm())
+        self.addAlgorithm(PointDxfAlgorithm())
         self.addAlgorithm(PolygonDxfAlgorithm())
         self.addAlgorithm(ShortestPathPointLayerAlgorithm())
 

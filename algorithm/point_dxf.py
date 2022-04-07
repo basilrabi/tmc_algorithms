@@ -12,7 +12,7 @@
 """
 
 __author__ = 'Basil Eric Rabi'
-__date__ = '2022-04-06'
+__date__ = '2022-04-07'
 __copyright__ = '(C) 2022 by Basil Eric Rabi'
 __revision__ = '$Format:%H$'
 
@@ -27,11 +27,12 @@ from qgis.core import (QgsProcessing,
 from .lib import new_dxf
 
 
-class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
+class PointDxfAlgorithm(QgsProcessingAlgorithm):
 
     ELEVATION_FIELD = 'ELEVATION_FIELD'
     FILENAME = 'FILENAME'
     INPUT = 'INPUT'
+    LABEL_FIELD = 'LABEL_FIELD'
     LAYER_FIELD = 'LAYER_FIELD'
 
     def initAlgorithm(self, config):
@@ -39,13 +40,20 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFeatureSource(
                 self.INPUT,
                 self.tr('Input layer'),
-                [QgsProcessing.TypeVectorPolygon]
+                [QgsProcessing.TypeVectorPoint]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
                 self.LAYER_FIELD,
                 self.tr('Column to be used as layer name in DXF'),
+                parentLayerParameterName=self.INPUT
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterField(
+                self.LABEL_FIELD,
+                self.tr('Column to be used as label in DXF'),
                 parentLayerParameterName=self.INPUT
             )
         )
@@ -70,6 +78,7 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
         if dxf_file[-4:] != '.dxf':
             dxf_file += '.dxf'
         elevation = self.parameterAsFields(parameters, self.ELEVATION_FIELD, context) or None
+        label = self.parameterAsFields(parameters, self.LAYER_FIELD, context)[0]
         field = self.parameterAsFields(parameters, self.LAYER_FIELD, context)[0]
         layers = set()
         source = self.parameterAsVectorLayer(parameters, self.INPUT, context)
@@ -97,37 +106,28 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
         for current, feature in enumerate(features):
             if feedback.isCanceled():
                 break
-
             msp = doc.modelspace()
             if feature.hasGeometry():
                 layer = f'{feature.attribute(field)}'
                 if not layer in layers:
                     doc.layers.new(name=layer)
                     layers.add(layer)
-                geom = feature.geometry().asMultiPolygon()
-                for multi_polygon in geom:
-                    for polygon in multi_polygon:
-                        attr = {
-                            'layer': layer,
-                            'linetype': 'CONTINUOUS'
-                        }
-                        if elevation:
-                            attr['elevation'] = feature.attribute(elevation_field)
-                        entity = msp.add_lwpolyline(
-                            [(point.x(), point.y()) for point in polygon],
-                            dxfattribs=attr
-                        )
-                        entity.set_xdata('TMCAlgorithms', [
-                            (1001, 'TMCAlgorithms'),
-                            (1000, layer),
-                        ])
+                geom = feature.geometry().asMultiPoint()
+                for point in geom:
+                    attr = {'layer': layer}
+                    if elevation:
+                        attr['elevation'] = feature.attribute(elevation_field)
+                    msp.add_text(
+                        feature.attribute(label),
+                        dxfattribs = attr
+                    ).set_pos((point.x(), point.y()), align='MIDDLE')
             feedback.setProgress(int(current * total))
 
         doc.saveas(dxf_file)
         return {self.FILENAME: dxf_file}
 
     def name(self):
-        return 'Export polygon to DXF'
+        return 'Export point to DXF'
 
     def displayName(self):
         return self.tr(self.name())
@@ -142,7 +142,7 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
         return QCoreApplication.translate('Processing', string)
 
     def createInstance(self):
-        return PolygonDxfAlgorithm()
+        return PointDxfAlgorithm()
 
     def shortHelpString(self):
-        return self.tr('Export a (Multi)Polygon layer to DXF.')
+        return self.tr('Export a (Multi)Point layer to DXF.')

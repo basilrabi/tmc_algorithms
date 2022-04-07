@@ -105,17 +105,12 @@ class LineDxfAlgorithm(QgsProcessingAlgorithm):
                     layers.add(layer)
                 geom = feature.geometry().asMultiPolyline()
                 for polyline in geom:
+                    attr = {
+                        'layer': layer,
+                        'linetype': 'CONTINUOUS'
+                    }
                     if elevation:
-                        attr = {
-                            'layer': layer,
-                            'linetype': 'CONTINUOUS',
-                            'elevation': feature.attribute(elevation_field)
-                        }
-                    else:
-                        attr = {
-                            'layer': layer,
-                            'linetype': 'CONTINUOUS'
-                        }
+                        attr['elevation'] = feature.attribute(elevation_field)
                     entity = msp.add_lwpolyline(
                         [(point.x(), point.y()) for point in polyline],
                         dxfattribs=attr
