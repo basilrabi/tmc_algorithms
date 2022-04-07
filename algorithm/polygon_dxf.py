@@ -16,7 +16,6 @@ __date__ = '2022-04-06'
 __copyright__ = '(C) 2022 by Basil Eric Rabi'
 __revision__ = '$Format:%H$'
 
-import os
 from processing import run # pyright: reportMissingImports=false
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
@@ -130,7 +129,6 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
             feedback.setProgress(int(current * total))
 
         doc.saveas(dxf_file)
-        os.remove('tmc_algorithm.gpkg')
         return {self.FILENAME: dxf_file}
 
     def name(self):
