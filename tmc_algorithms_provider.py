@@ -20,6 +20,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.core import QgsProcessingProvider
 from . import resources
 from .algorithm.cluster_dxf import ClusterDxfAlgorithm
+from .algorithm.line_dxf import LineDxfAlgorithm
 from .algorithm.polygon_dxf import PolygonDxfAlgorithm
 from .algorithm.shortest_path import ShortestPathPointLayerAlgorithm
 
@@ -44,6 +45,7 @@ class TmcAlgorithmsProvider(QgsProcessingProvider):
         Loads all algorithms belonging to this provider.
         """
         self.addAlgorithm(ClusterDxfAlgorithm())
+        self.addAlgorithm(LineDxfAlgorithm())
         self.addAlgorithm(PolygonDxfAlgorithm())
         self.addAlgorithm(ShortestPathPointLayerAlgorithm())
 
