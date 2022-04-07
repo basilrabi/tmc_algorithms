@@ -25,19 +25,7 @@ from qgis.core import (QgsProcessing,
                        QgsProcessingParameterField,
                        QgsProcessingParameterFileDestination,
                        QgsProcessingUtils)
-
-try:
-    import ezdxf # pyright: reportMissingImports=false
-except ImportError:
-    import sys
-    from pathlib import Path
-    this_dir = os.path.dirname(os.path.realpath(__file__))
-    plugin_dir = Path(this_dir).parent
-    path = os.path.join(plugin_dir, 'lib', 'ezdxf-0.14-py3-none-any.whl')
-    sys.path.append(path)
-    path = os.path.join(plugin_dir, 'lib', 'pyparsing-2.4.7-py2.py3-none-any.whl')
-    sys.path.append(path)
-    import ezdxf
+from .lib import new_dxf
 
 
 class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
@@ -104,7 +92,7 @@ class PolygonDxfAlgorithm(QgsProcessingAlgorithm):
 
         total = 100.0 / multi.featureCount() if multi.featureCount() else 0
         features = multi.getFeatures()
-        doc = ezdxf.new('R2013')
+        doc = new_dxf('R2013')
         doc.appids.new('TMCAlgorithms')
 
         for current, feature in enumerate(features):

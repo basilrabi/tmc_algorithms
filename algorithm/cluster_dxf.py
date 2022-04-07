@@ -16,25 +16,12 @@ __date__ = '2022-03-11'
 __copyright__ = '(C) 2022 by Basil Eric Rabi'
 __revision__ = '$Format:%H$'
 
-try:
-    import ezdxf # pyright: reportMissingImports=false
-except ImportError:
-    import sys
-    import os
-    from pathlib import Path
-    this_dir = os.path.dirname(os.path.realpath(__file__))
-    plugin_dir = Path(this_dir).parent
-    path = os.path.join(plugin_dir, 'lib', 'ezdxf-0.14-py3-none-any.whl')
-    sys.path.append(path)
-    path = os.path.join(plugin_dir, 'lib', 'pyparsing-2.4.7-py2.py3-none-any.whl')
-    sys.path.append(path)
-    import ezdxf
-
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFileDestination)
+from .lib import new_dxf
 
 
 # AutoCAD Color Index (ACI) assigned for each ore class
@@ -85,7 +72,7 @@ class ClusterDxfAlgorithm(QgsProcessingAlgorithm):
 
         total = 100.0 / source.featureCount() if source.featureCount() else 0
         features = source.getFeatures()
-        doc = ezdxf.new('R2013')
+        doc = new_dxf('R2013')
         doc.appids.new('TrimbleName')
 
         for current, feature in enumerate(features):
