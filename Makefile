@@ -1,7 +1,6 @@
 #/***************************************************************************
-# TmcAlgorithms
+# TMC Algorithms
 #
-# Export clusters to DXF
 #							 -------------------
 #		begin				: 2020-09-16
 #		git sha				: $Format:%H$
@@ -31,6 +30,7 @@ PLUGINDIR=$(HOME)/.local/share/QGIS/QGIS3/profiles/default/python/plugins/$(PLUG
 
 
 .PHONY: default
+
 default:
 	@echo "TMC Algorithms"
 
@@ -44,13 +44,9 @@ deploy:
 	cp -rvf algorithm $(PLUGINDIR)/
 	cp -rvf lib $(PLUGINDIR)/
 
-dclean:
-	find $(PLUGINDIR) -iname ".git" -prune -exec rm -Rf {} \;
-
 derase:
 	rm -Rf $(PLUGINDIR)
 
-zip: deploy dclean
+zip: derase deploy
 	rm -f $(PLUGINNAME).zip
 	cd $(PLUGINDIR); cd ..; zip -9r $(CURDIR)/$(PLUGINNAME).zip $(PLUGINNAME)
-
