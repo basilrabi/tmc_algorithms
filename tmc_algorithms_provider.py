@@ -24,6 +24,7 @@ from .algorithm.line_dxf import LineDxfAlgorithm
 from .algorithm.point_dxf import PointDxfAlgorithm
 from .algorithm.polygon_dxf import PolygonDxfAlgorithm
 from .algorithm.shortest_path import ShortestPathPointLayerAlgorithm
+from .algorithm.surpac_string import ExportPolygonToSurpacStringAlgorithm
 
 
 class TmcAlgorithmsProvider(QgsProcessingProvider):
@@ -46,6 +47,7 @@ class TmcAlgorithmsProvider(QgsProcessingProvider):
         Loads all algorithms belonging to this provider.
         """
         self.addAlgorithm(ClusterDxfAlgorithm())
+        self.addAlgorithm(ExportPolygonToSurpacStringAlgorithm())
         self.addAlgorithm(LineDxfAlgorithm())
         self.addAlgorithm(PointDxfAlgorithm())
         self.addAlgorithm(PolygonDxfAlgorithm())
